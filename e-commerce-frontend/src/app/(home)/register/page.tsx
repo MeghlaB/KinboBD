@@ -8,13 +8,13 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import {auth} from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 const Register = () => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  // Handle registration via email and password.
+  // Email/password দিয়ে রেজিস্টার করা
   const registerForm = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -25,18 +25,25 @@ const Register = () => {
     const password = formData.get("password") as string;
 
     try {
-      // Create user with email and password.
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-
-      // Update the user's profile with the display name.
+      // Firebase Auth দিয়ে ইউজার তৈরি
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
 
-      console.log("User registered:", userCredential.user);
-      // Optionally, redirect the user after successful registration.
+      // firebaseUser ডিক্লেয়ার করুন
+      const firebaseUser = userCredential.user;
+
+      // আপনার ব্যাকএন্ড API তে ইউজার ডাটা পাঠান
+      await fetch('/api/save-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          name,
+          email,
+          photoURL: firebaseUser.photoURL || '',
+        }),
+      });
+
       router.push("/");
     } catch (err: any) {
       console.error("Registration error:", err);
@@ -44,13 +51,27 @@ const Register = () => {
     }
   };
 
-  // Handle registration via Google.
+  // Google দিয়ে রেজিস্টার করা
   const registerWithGoogle = async () => {
     setError(null);
     const provider = new GoogleAuthProvider();
+
     try {
       const result = await signInWithPopup(auth, provider);
-      console.log("Google registration successful:", result.user);
+      const firebaseUser = result.user;
+
+      // Google রেজিস্ট্রেশন হলে ও ডাটা ব্যাকএন্ডে পাঠান
+      await fetch('/api/save-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          photoURL: firebaseUser.photoURL || '',
+        }),
+      });
+
       router.push("/");
     } catch (err: any) {
       console.error("Google registration error:", err);
@@ -64,17 +85,12 @@ const Register = () => {
         onSubmit={registerForm}
         className="w-full max-w-md bg-white shadow-md rounded-2xl p-8 space-y-6"
       >
-        <h2 className="text-2xl font-semibold text-center text-gray-800">
-          Register
-        </h2>
+        <h2 className="text-2xl font-semibold text-center text-gray-800">Register</h2>
 
         {error && <div className="text-red-500 text-center">{error}</div>}
 
         <div>
-          <label
-            htmlFor="fullName"
-            className="block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
             Full Name
           </label>
           <input
@@ -88,10 +104,7 @@ const Register = () => {
         </div>
 
         <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             Email Address
           </label>
           <input
@@ -105,10 +118,7 @@ const Register = () => {
         </div>
 
         <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
           </label>
           <input
@@ -137,27 +147,13 @@ const Register = () => {
           onClick={registerWithGoogle}
           className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-xl transition-all flex items-center justify-center space-x-2"
         >
-          <svg
-            className="w-5 h-5"
-            viewBox="0 0 48 48"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fill="#EA4335"
-              d="M24 9.5c3.4 0 6.4 1.2 8.7 3.2l6.5-6.5C35.1 2.4 29.9 0 24 0 14.8 0 6.8 5.3 2.7 13.2l7.6 5.9C12.3 13.2 17.4 9.5 24 9.5z"
-            />
-            <path
-              fill="#4285F4"
-              d="M46.8 24.5c0-1.7-.1-3.3-.4-4.8H24v9.1h12.8c-.6 3.4-2.5 6.3-5.4 8.3l8.3 6.5c4.8-4.4 7.6-10.8 7.6-18.1z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M9.4 28.1c-1.1-3.2-1.1-6.7 0-9.9V12.3l-7.6-5.9C.4 11.9-.3 17.4 0 22.7c.3 5.3 2 10.8 5.4 15.3l7.6-5.9z"
-            />
-            <path
-              fill="#34A853"
-              d="M24 48c6.5 0 12.1-2.1 16.1-5.8l-8.3-6.5c-2.3 1.5-5.3 2.4-7.8 2.4-5.9 0-10.9-4-12.7-9.4l-7.6 5.9C6.8 42.7 14.8 48 24 48z"
-            />
+          {/* Google SVG icon */}
+          <svg className="w-5 h-5" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            {/* SVG paths */}
+            <path fill="#EA4335" d="M24 9.5c3.4 0 6.4 1.2 8.7 3.2l6.5-6.5C35.1 2.4 29.9 0 24 0 14.8 0 6.8 5.3 2.7 13.2l7.6 5.9C12.3 13.2 17.4 9.5 24 9.5z" />
+            <path fill="#4285F4" d="M46.8 24.5c0-1.7-.1-3.3-.4-4.8H24v9.1h12.8c-.6 3.4-2.5 6.3-5.4 8.3l8.3 6.5c4.8-4.4 7.6-10.8 7.6-18.1z" />
+            <path fill="#FBBC05" d="M9.4 28.1c-1.1-3.2-1.1-6.7 0-9.9V12.3l-7.6-5.9C.4 11.9-.3 17.4 0 22.7c.3 5.3 2 10.8 5.4 15.3l7.6-5.9z" />
+            <path fill="#34A853" d="M24 48c6.5 0 12.1-2.1 16.1-5.8l-8.3-6.5c-2.3 1.5-5.3 2.4-7.8 2.4-5.9 0-10.9-4-12.7-9.4l-7.6 5.9C6.8 42.7 14.8 48 24 48z" />
             <path fill="none" d="M0 0h48v48H0z" />
           </svg>
           <span>Sign up with Google</span>
