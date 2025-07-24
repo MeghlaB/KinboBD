@@ -1,7 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -9,72 +7,69 @@ import {
   GoogleAuthProvider,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const Register = () => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  // Email/password দিয়ে রেজিস্টার করা
-  const registerForm = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveUserToDB = async (user: any) => {
+    const userData = {
+      name: user.displayName,
+      email: user.email,
+      avatar: user.photoURL,
+      role: "user",
+    };
+
+    try {
+      const res = await fetch("http://localhost:5000/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await res.json();
+      console.log("User saved to DB:", data);
+    } catch (err) {
+      console.error("DB Save Error:", err);
+    }
+  };
+
+  const registerForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setError(null);
-    const form = event.currentTarget;
-    const formData = new FormData(form);
+
+    const formData = new FormData(e.currentTarget);
     const name = formData.get("fullName") as string;
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
     try {
-      // Firebase Auth দিয়ে ইউজার তৈরি
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
 
-      // firebaseUser ডিক্লেয়ার করুন
       const firebaseUser = userCredential.user;
-
-      // আপনার ব্যাকএন্ড API তে ইউজার ডাটা পাঠান
-      await fetch('/api/save-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          name,
-          email,
-          photoURL: firebaseUser.photoURL || '',
-        }),
-      });
+      await saveUserToDB(firebaseUser); // ✅ Save to DB
 
       router.push("/");
     } catch (err: any) {
-      console.error("Registration error:", err);
       setError(err.message);
     }
   };
 
-  // Google দিয়ে রেজিস্টার করা
   const registerWithGoogle = async () => {
-    setError(null);
-    const provider = new GoogleAuthProvider();
-
     try {
+      const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      const firebaseUser = result.user;
 
-      // Google রেজিস্ট্রেশন হলে ও ডাটা ব্যাকএন্ডে পাঠান
-      await fetch('/api/save-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName,
-          email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL || '',
-        }),
-      });
+      const firebaseUser = result.user;
+      await saveUserToDB(firebaseUser); // ✅ Save to DB
 
       router.push("/");
     } catch (err: any) {
-      console.error("Google registration error:", err);
       setError(err.message);
     }
   };
@@ -147,9 +142,7 @@ const Register = () => {
           onClick={registerWithGoogle}
           className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-xl transition-all flex items-center justify-center space-x-2"
         >
-          {/* Google SVG icon */}
           <svg className="w-5 h-5" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-            {/* SVG paths */}
             <path fill="#EA4335" d="M24 9.5c3.4 0 6.4 1.2 8.7 3.2l6.5-6.5C35.1 2.4 29.9 0 24 0 14.8 0 6.8 5.3 2.7 13.2l7.6 5.9C12.3 13.2 17.4 9.5 24 9.5z" />
             <path fill="#4285F4" d="M46.8 24.5c0-1.7-.1-3.3-.4-4.8H24v9.1h12.8c-.6 3.4-2.5 6.3-5.4 8.3l8.3 6.5c4.8-4.4 7.6-10.8 7.6-18.1z" />
             <path fill="#FBBC05" d="M9.4 28.1c-1.1-3.2-1.1-6.7 0-9.9V12.3l-7.6-5.9C.4 11.9-.3 17.4 0 22.7c.3 5.3 2 10.8 5.4 15.3l7.6-5.9z" />
